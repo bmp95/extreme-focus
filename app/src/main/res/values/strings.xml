@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Extreme Focus</string>
+    <string name="accessibility_service_description">Extreme Focus intercepta aplicaciones adictivas cuando se supera tu límite diario, forzando la disciplina y protegiendo tu tiempo de forma local e intransigente.</string>
+    <string name="device_admin_description">Protección anti-sabotaje de Extreme Focus. Impide que desinstales la app compulsivamente en momentos de debilidad para saltarte los bloqueos de productividad.</string>
+</resources>

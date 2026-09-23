@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="76dp"
+        android:height="76dp"
+        android:drawable="@drawable/extreme_focus_icon_1790060493015"
+        android:gravity="center" />
+</layer-list>

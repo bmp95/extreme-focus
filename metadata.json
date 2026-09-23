@@ -1,0 +1,6 @@
+{
+  "name": "Extreme Focus",
+  "description": "Aplicación de bienestar digital extremo, control de uso, bloqueo activo y fricción intencional.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
