@@ -2,7 +2,6 @@ package app.extremefocus.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,7 +25,10 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -39,10 +41,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.extremefocus.domain.PermissionsState
+import app.extremefocus.domain.SetupPlan
+import app.extremefocus.domain.SetupStep
+import app.extremefocus.domain.SetupTier
 import app.extremefocus.ui.theme.AmberWarning
 import app.extremefocus.ui.theme.CardBorder
 import app.extremefocus.ui.theme.CardSurface
@@ -53,18 +59,68 @@ import app.extremefocus.ui.theme.TextMuted
 import app.extremefocus.ui.theme.TextPrimary
 import app.extremefocus.ui.theme.TextSecondary
 
+private data class StepCopy(
+    val title: String,
+    val description: String,
+    val icon: ImageVector,
+    val actionLabel: String = "Activar"
+)
+
+private fun copyFor(step: SetupStep): StepCopy = when (step) {
+    SetupStep.USAGE_ACCESS -> StepCopy(
+        title = "Acceso al uso",
+        description = "Sin esto la app no puede saber cuántos minutos llevas en cada aplicación, que es la base de todo lo demás.",
+        icon = Icons.Default.BarChart
+    )
+    SetupStep.ACCESSIBILITY -> StepCopy(
+        title = "Detección de apertura",
+        description = "Es lo que permite cerrar una app restringida en el instante en que la abres. Sin esto no se bloquea nada.",
+        icon = Icons.Default.AccessibilityNew
+    )
+    SetupStep.BATTERY_UNRESTRICTED -> StepCopy(
+        title = "Sin restricción de batería",
+        description = "El sistema congela las apps en segundo plano para ahorrar batería. Si lo hace con esta, la vigilancia se para sin avisar.",
+        icon = Icons.Default.PowerSettingsNew,
+        actionLabel = "Quitar restricción"
+    )
+    SetupStep.AUTOSTART -> StepCopy(
+        title = "Autoarranque (Xiaomi)",
+        description = "Tu móvil cierra las apps que no tienen autoarranque permitido. Actívalo para que la protección siga viva tras reiniciar.",
+        icon = Icons.Default.RestartAlt,
+        actionLabel = "Abrir ajustes de Xiaomi"
+    )
+    SetupStep.POST_NOTIFICATIONS -> StepCopy(
+        title = "Avisos de la app",
+        description = "Permite mostrar el aviso permanente de que la protección sigue activa, y alertarte si se cae.",
+        icon = Icons.Default.NotificationsActive
+    )
+    SetupStep.OVERLAY -> StepCopy(
+        title = "Superposición",
+        description = "Dibuja el reto de fricción por encima de la app bloqueada, para que no puedas esquivarlo volviendo atrás.",
+        icon = Icons.Default.Layers
+    )
+    SetupStep.NOTIFICATION_LISTENER -> StepCopy(
+        title = "Silenciar notificaciones",
+        description = "Cancela las notificaciones de las apps que limitas: sin el gancho, no hay recaída.",
+        icon = Icons.Default.NotificationsOff
+    )
+    SetupStep.DEVICE_ADMIN -> StepCopy(
+        title = "Protección anti-desinstalación",
+        description = "Dificulta desinstalar la app en un momento de debilidad. Actívalo solo cuando estés seguro.",
+        icon = Icons.Default.AdminPanelSettings
+    )
+}
+
 @Composable
 fun PermissionsGuideScreen(
     state: PermissionsState,
-    onRequestUsage: () -> Unit,
-    onRequestAccessibility: () -> Unit,
-    onRequestOverlay: () -> Unit,
-    onRequestNotifications: () -> Unit,
-    onRequestPostNotifications: () -> Unit,
-    onRequestDeviceAdmin: () -> Unit,
+    includeAutostart: Boolean,
+    onRequestStep: (SetupStep) -> Unit,
     onBack: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val nextStep = SetupPlan.nextStep(state, includeAutostart)
+    val canBlock = SetupPlan.canBlock(state)
 
     Column(
         modifier = Modifier
@@ -73,7 +129,6 @@ fun PermissionsGuideScreen(
             .padding(horizontal = 20.dp, vertical = 16.dp)
             .verticalScroll(scrollState)
     ) {
-        // Navigation Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -93,86 +148,55 @@ fun PermissionsGuideScreen(
                 )
             }
             Spacer(modifier = Modifier.width(14.dp))
-            Column {
-                Text(
-                    text = "Configuración de permisos",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = "Permite que el sistema aplique las restricciones",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-            }
+            Text(
+                text = "Puesta en marcha",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
         }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        StatusCard(canBlock = canBlock, state = state, includeAutostart = includeAutostart)
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Card 1: Usage Stats
-        PermissionCard(
-            title = "Datos de uso de aplicaciones",
-            description = "Calcula el tiempo real que pasas en cada app durante el día para advertirte cuando llegues al límite.",
-            isGranted = state.hasUsageStats,
-            icon = Icons.Default.BarChart,
-            onConfigure = onRequestUsage
+        SectionTitle(
+            text = "Imprescindibles",
+            subtitle = "Con estos dos ya bloquea. Son los únicos obligatorios."
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        SetupStep.entries.filter { it.tier == SetupTier.ESSENTIAL }.forEach { step ->
+            Spacer(modifier = Modifier.height(12.dp))
+            StepCard(
+                step = step,
+                isGranted = SetupPlan.isGranted(step, state),
+                isNext = step == nextStep,
+                onConfigure = { onRequestStep(step) }
+            )
+        }
 
-        // Card 2: Accessibility
-        PermissionCard(
-            title = "Servicio de detección activa",
-            description = "Detecta cuando abres una aplicación restringida para cerrar la ventana y redirigirte al inicio de inmediato.",
-            isGranted = state.isAccessibilityEnabled,
-            icon = Icons.Default.AccessibilityNew,
-            onConfigure = onRequestAccessibility
+        Spacer(modifier = Modifier.height(28.dp))
+
+        SectionTitle(
+            text = "Refuerzo",
+            subtitle = if (canBlock) {
+                "Opcionales, pero sin ellos el sistema puede parar la vigilancia sin avisarte."
+            } else {
+                "Disponibles cuando termines lo imprescindible."
+            }
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Card 3: Overlay
-        PermissionCard(
-            title = "Superposición en pantalla (SYSTEM_ALERT_WINDOW)",
-            description = "Mantiene la Tarea de Monotonía y la pantalla de bloqueo flotando de forma ineludible sobre cualquier app bloqueada para evitar atajos.",
-            isGranted = state.hasOverlay,
-            icon = Icons.Default.Layers,
-            onConfigure = onRequestOverlay
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Card 4: notification listener access — cancels other apps' notifications
-        PermissionCard(
-            title = "Silenciado de notificaciones",
-            description = "Filtra las alertas de las apps seleccionadas para evitar interrupciones mientras trabajas.",
-            isGranted = state.hasNotificationAccess,
-            icon = Icons.Default.NotificationsOff,
-            onConfigure = onRequestNotifications
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Card 5: POST_NOTIFICATIONS — shows this app's own status notification
-        PermissionCard(
-            title = "Aviso de protección activa",
-            description = "Permite mostrar el aviso permanente que confirma que la vigilancia sigue en marcha. Sin él no sabrás si la protección se ha detenido.",
-            isGranted = state.canPostNotifications,
-            icon = Icons.Default.NotificationsActive,
-            onConfigure = onRequestPostNotifications
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Card 6: Device Admin
-        PermissionCard(
-            title = "Protección contra desinstalación",
-            description = "Impide desinstalar la app por impulso para mantener tu compromiso en momentos de debilidad.",
-            isGranted = state.isDeviceAdminActive,
-            icon = Icons.Default.AdminPanelSettings,
-            onConfigure = onRequestDeviceAdmin
-        )
+        SetupPlan.steps(includeAutostart).filter { it.tier == SetupTier.SHIELD }.forEach { step ->
+            Spacer(modifier = Modifier.height(12.dp))
+            StepCard(
+                step = step,
+                isGranted = SetupPlan.isGranted(step, state),
+                isNext = step == nextStep,
+                onConfigure = { onRequestStep(step) }
+            )
+        }
 
         Spacer(modifier = Modifier.height(28.dp))
 
@@ -196,14 +220,14 @@ fun PermissionsGuideScreen(
                 Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
-                        text = "Privacidad local en el dispositivo",
+                        text = "Todo se queda en este teléfono",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Todos los datos de uso y eventos se procesan y almacenan exclusivamente en la memoria de este teléfono.",
+                        text = "Los datos de uso y los eventos se procesan y almacenan solo aquí. No hay servidor ni cuenta.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextMuted
                     )
@@ -216,18 +240,91 @@ fun PermissionsGuideScreen(
 }
 
 @Composable
-private fun PermissionCard(
-    title: String,
-    description: String,
+private fun StatusCard(
+    canBlock: Boolean,
+    state: PermissionsState,
+    includeAutostart: Boolean
+) {
+    val shieldGranted = SetupPlan.grantedCount(state, SetupTier.SHIELD, includeAutostart)
+    val shieldTotal = SetupPlan.totalCount(SetupTier.SHIELD, includeAutostart)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .border(
+                1.dp,
+                if (canBlock) NeonGreenSuccess.copy(alpha = 0.45f) else AmberWarning.copy(alpha = 0.45f),
+                RoundedCornerShape(18.dp)
+            ),
+        colors = CardDefaults.cardColors(containerColor = CardSurface)
+    ) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (canBlock) Icons.Default.Shield else Icons.Default.NotificationsActive,
+                    contentDescription = null,
+                    tint = if (canBlock) NeonGreenSuccess else AmberWarning,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = if (canBlock) "Ya está bloqueando" else "Todavía no bloquea nada",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (canBlock) NeonGreenSuccess else AmberWarning
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = if (canBlock) {
+                    "Refuerzo: $shieldGranted de $shieldTotal. Cada uno que añadas se lo pone más difícil al sistema para pararte la vigilancia."
+                } else {
+                    "Te faltan permisos imprescindibles. Android obliga a concederlos uno a uno: sigue el resaltado y vuelve aquí."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+                lineHeight = 19.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String, subtitle: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = TextPrimary
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = subtitle,
+        style = MaterialTheme.typography.bodySmall,
+        color = TextMuted,
+        lineHeight = 17.sp
+    )
+}
+
+@Composable
+private fun StepCard(
+    step: SetupStep,
     isGranted: Boolean,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isNext: Boolean,
     onConfigure: () -> Unit
 ) {
+    val copy = copyFor(step)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, CardBorder, RoundedCornerShape(16.dp)),
+            .border(
+                if (isNext) 2.dp else 1.dp,
+                if (isNext) AmberWarning else CardBorder,
+                RoundedCornerShape(16.dp)
+            ),
         colors = CardDefaults.cardColors(containerColor = CardSurface)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -240,13 +337,12 @@ private fun PermissionCard(
                         .size(38.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(
-                            if (isGranted) NeonGreenSuccess.copy(alpha = 0.12f)
-                            else DarkSurface
+                            if (isGranted) NeonGreenSuccess.copy(alpha = 0.12f) else DarkSurface
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = icon,
+                        imageVector = copy.icon,
                         contentDescription = null,
                         tint = if (isGranted) NeonGreenSuccess else TextSecondary,
                         modifier = Modifier.size(20.dp)
@@ -257,15 +353,24 @@ private fun PermissionCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = title,
+                        text = copy.title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = TextPrimary
                     )
                     Text(
-                        text = if (isGranted) "Activado correctamente" else "Requiere activación",
+                        text = when {
+                            isGranted -> "Listo"
+                            isNext -> "Siguiente paso"
+                            step == SetupStep.AUTOSTART -> "No se puede comprobar solo"
+                            else -> "Pendiente"
+                        },
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (isGranted) NeonGreenSuccess else AmberWarning
+                        color = when {
+                            isGranted -> NeonGreenSuccess
+                            isNext -> AmberWarning
+                            else -> TextMuted
+                        }
                     )
                 }
 
@@ -279,16 +384,14 @@ private fun PermissionCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-                lineHeight = 18.sp
-            )
-
             if (!isGranted) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = copy.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    lineHeight = 18.sp
+                )
                 Spacer(modifier = Modifier.height(14.dp))
                 Button(
                     onClick = onConfigure,
@@ -297,11 +400,11 @@ private fun PermissionCard(
                         .height(44.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = TextPrimary
+                        containerColor = if (isNext) AmberWarning else TextPrimary
                     )
                 ) {
                     Text(
-                        text = "Configurar permiso",
+                        text = copy.actionLabel,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = PitchBlack

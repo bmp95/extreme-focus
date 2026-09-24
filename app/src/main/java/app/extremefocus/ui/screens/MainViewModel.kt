@@ -31,14 +31,7 @@ data class InstalledAppInfo(
     val isSystemApp: Boolean
 )
 
-data class PermissionsState(
-    val hasUsageStats: Boolean = false,
-    val isAccessibilityEnabled: Boolean = false,
-    val hasOverlay: Boolean = false,
-    val hasNotificationAccess: Boolean = false,
-    val canPostNotifications: Boolean = false,
-    val isDeviceAdminActive: Boolean = false
-)
+typealias PermissionsState = app.extremefocus.domain.PermissionsState
 
 class MainViewModel(
     private val context: Context,
@@ -82,6 +75,7 @@ class MainViewModel(
         val hasNotif = usageManager.isNotificationAccessGranted()
         val canPost = usageManager.canPostNotifications()
         val isAdmin = usageManager.isDeviceAdminActive()
+        val batteryFree = usageManager.isBatteryUnrestricted()
 
         _permissionsState.value = PermissionsState(
             hasUsageStats = hasUsage,
@@ -89,7 +83,8 @@ class MainViewModel(
             hasOverlay = hasOverlay,
             hasNotificationAccess = hasNotif,
             canPostNotifications = canPost,
-            isDeviceAdminActive = isAdmin
+            isDeviceAdminActive = isAdmin,
+            isBatteryUnrestricted = batteryFree
         )
 
         if (hasUsage) {
@@ -101,11 +96,16 @@ class MainViewModel(
         }
     }
 
+    /** Xiaomi needs an extra, unreadable autostart grant, so the step is only shown there. */
+    val needsAutostartStep: Boolean = usageManager.isMiui()
+
     fun requestUsagePermission() = usageManager.openUsageAccessSettings()
     fun requestAccessibilityPermission() = usageManager.openAccessibilitySettings()
     fun requestOverlayPermission() = usageManager.openOverlaySettings()
     fun requestNotificationPermission() = usageManager.openNotificationListenerSettings()
     fun requestDeviceAdmin(activity: Activity) = usageManager.requestDeviceAdmin(activity)
+    fun requestBatteryUnrestricted() = usageManager.requestIgnoreBatteryOptimizations()
+    fun requestAutostart() = usageManager.openAutostartSettings()
 
     private fun seedDefaultsIfEmpty() {
         viewModelScope.launch(Dispatchers.IO) {

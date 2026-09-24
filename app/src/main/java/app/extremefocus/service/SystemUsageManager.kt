@@ -8,9 +8,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
+import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import app.extremefocus.receiver.ExtremeFocusDeviceAdminReceiver
@@ -71,32 +74,74 @@ class SystemUsageManager(private val context: Context) {
         return dpm?.isAdminActive(adminComponent) == true
     }
 
-    fun openUsageAccessSettings() {
-        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        context.startActivity(intent)
+    /** Whether the system has stopped throttling this app, which is what keeps monitoring alive. */
+    fun isBatteryUnrestricted(): Boolean {
+        val pm = context.getSystemService(PowerManager::class.java) ?: return false
+        return pm.isIgnoringBatteryOptimizations(context.packageName)
     }
 
-    fun openAccessibilitySettings() {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        context.startActivity(intent)
+    /** Xiaomi devices kill background work unless the user also grants autostart by hand. */
+    fun isMiui(): Boolean = !getSystemProperty("ro.miui.ui.version.name").isNullOrBlank()
+
+    private fun getSystemProperty(key: String): String? = try {
+        @Suppress("PrivateApi")
+        Class.forName("android.os.SystemProperties")
+            .getMethod("get", String::class.java)
+            .invoke(null, key) as? String
+    } catch (e: Exception) {
+        null
     }
 
-    fun openOverlaySettings() {
-        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    fun openUsageAccessSettings() = startSettings(
+        Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+    )
+
+    fun openAccessibilitySettings() = startSettings(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+
+    // The package URI lands directly on this app's switch instead of a list to search through.
+    fun openOverlaySettings() = startSettings(
+        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, appUri())
+    )
+
+    fun openNotificationListenerSettings() = startSettings(
+        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+    )
+
+    fun openAppNotificationSettings() = startSettings(
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+    )
+
+    fun requestIgnoreBatteryOptimizations() = startSettings(
+        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, appUri())
+    )
+
+    /** Opens Xiaomi's autostart list, falling back to this app's details page elsewhere. */
+    fun openAutostartSettings() {
+        val miuiAutostart = Intent().setClassName(
+            "com.miui.securitycenter",
+            "com.miui.permcenter.autostart.AutoStartManagementActivity"
+        )
+        if (miuiAutostart.resolveActivity(context.packageManager) != null) {
+            startSettings(miuiAutostart)
+        } else {
+            openAppDetailsSettings()
         }
-        context.startActivity(intent)
     }
 
-    fun openNotificationListenerSettings() {
-        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+    fun openAppDetailsSettings() = startSettings(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, appUri())
+    )
+
+    private fun appUri(): Uri = Uri.parse("package:${context.packageName}")
+
+    private fun startSettings(intent: Intent) {
+        try {
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            Log.e("SystemUsageManager", "No activity for ${intent.action}: ${e.message}")
+            if (intent.action != Settings.ACTION_APPLICATION_DETAILS_SETTINGS) openAppDetailsSettings()
         }
-        context.startActivity(intent)
     }
 
     fun requestDeviceAdmin(activity: android.app.Activity) {

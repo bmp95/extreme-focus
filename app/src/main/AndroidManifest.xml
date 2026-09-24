@@ -14,6 +14,19 @@
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Enforcement stops the moment the system freezes this app, so the user is offered
+         an exemption from battery optimisation. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- Without this, package visibility filtering hides every other installed app, so the
+         app can neither suggest apps to limit nor list them in the selector. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -102,6 +115,11 @@
                 <action android:name="android.intent.action.TIME_SET" />
             </intent-filter>
         </receiver>
+
+        <!-- Watchdog: restarts monitoring after the system kills the service -->
+        <receiver
+            android:name=".receiver.WatchdogReceiver"
+            android:exported="false" />
 
     </application>
 

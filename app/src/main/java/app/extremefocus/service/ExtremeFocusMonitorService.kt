@@ -13,6 +13,7 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import app.extremefocus.domain.MonitorCadence
+import app.extremefocus.receiver.WatchdogReceiver
 import app.extremefocus.MainActivity
 import app.extremefocus.R
 import app.extremefocus.data.local.AppDatabase
@@ -65,6 +66,7 @@ class ExtremeFocusMonitorService : Service() {
             else -> {
                 startForeground(NOTIFICATION_ID, buildForegroundNotification("Protección activa", "Monitorizando límites de bienestar digital"))
                 startUsageMonitoringLoop()
+                WatchdogReceiver.schedule(this)
             }
         }
         return START_STICKY
@@ -81,6 +83,7 @@ class ExtremeFocusMonitorService : Service() {
                 if (screenOn) {
                     try {
                         watchedAppInForeground = checkAndSyncUsageThresholds()
+                        warnIfUnprotected()
                     } catch (e: Exception) {
                         Log.e(TAG, "Error in usage monitor loop: ${e.message}", e)
                     }
@@ -174,17 +177,67 @@ class ExtremeFocusMonitorService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Monitor de Bienestar y Límites",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Monitorea continuamente el tiempo en pantalla de aplicaciones objetivo en segundo plano."
-                setShowBadge(false)
-            }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
+            val manager = getSystemService(NotificationManager::class.java) ?: return
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "Monitor de Bienestar y Límites",
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = "Monitorea continuamente el tiempo en pantalla de aplicaciones objetivo en segundo plano."
+                    setShowBadge(false)
+                }
+            )
+            // Deliberately high importance: a silent failure here means no protection at all,
+            // and the user would keep believing they are covered.
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    ALERT_CHANNEL_ID,
+                    "Protección caída",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Avisa cuando la vigilancia deja de funcionar y hay que reactivarla."
+                }
+            )
         }
+    }
+
+    /**
+     * The system disables the accessibility service outright whenever this app is killed, and
+     * from that moment nothing is blocked. That has to be loud, not a quiet badge in the app.
+     */
+    private fun warnIfUnprotected() {
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        if (usageManager.isAccessibilityServiceEnabled()) {
+            manager.cancel(ALERT_NOTIFICATION_ID)
+            return
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            1,
+            Intent(this, MainActivity::class.java).apply { flags = Intent.FLAG_ACTIVITY_SINGLE_TOP },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        manager.notify(
+            ALERT_NOTIFICATION_ID,
+            NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+                .setContentTitle("La protección está caída")
+                .setContentText("El servicio de accesibilidad se ha desactivado. Ahora mismo no se bloquea nada.")
+                .setStyle(
+                    NotificationCompat.BigTextStyle().bigText(
+                        "El servicio de accesibilidad se ha desactivado, normalmente porque el sistema cerró la app. " +
+                            "Hasta que lo reactives no se bloquea ninguna aplicación."
+                    )
+                )
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_ERROR)
+                .setAutoCancel(false)
+                .build()
+        )
     }
 
     private fun buildForegroundNotification(title: String, content: String): Notification {
@@ -225,7 +278,9 @@ class ExtremeFocusMonitorService : Service() {
     companion object {
         private const val TAG = "ExtremeFocusMonitor"
         const val CHANNEL_ID = "extreme_focus_monitor_channel"
+        const val ALERT_CHANNEL_ID = "extreme_focus_alert_channel"
         const val NOTIFICATION_ID = 9901
+        const val ALERT_NOTIFICATION_ID = 9903
         const val ACTION_START_SERVICE = "app.extremefocus.service.action.START_MONITOR"
         const val ACTION_STOP_SERVICE = "app.extremefocus.service.action.STOP_MONITOR"
 

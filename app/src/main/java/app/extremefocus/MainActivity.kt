@@ -25,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import app.extremefocus.data.local.AppDatabase
+import app.extremefocus.domain.SetupStep
 import app.extremefocus.ui.screens.AppScreen
 import app.extremefocus.ui.screens.AppSelectorScreen
 import app.extremefocus.ui.screens.AuditLogsScreen
@@ -201,12 +202,19 @@ class MainActivity : ComponentActivity() {
                             is AppScreen.PermissionsGuide -> {
                                 PermissionsGuideScreen(
                                     state = permissionsState,
-                                    onRequestUsage = { viewModel.requestUsagePermission() },
-                                    onRequestAccessibility = { viewModel.requestAccessibilityPermission() },
-                                    onRequestOverlay = { viewModel.requestOverlayPermission() },
-                                    onRequestNotifications = { viewModel.requestNotificationPermission() },
-                                    onRequestPostNotifications = { requestPostNotificationsPermission() },
-                                    onRequestDeviceAdmin = { viewModel.requestDeviceAdmin(this@MainActivity) },
+                                    includeAutostart = viewModel.needsAutostartStep,
+                                    onRequestStep = { step ->
+                                        when (step) {
+                                            SetupStep.USAGE_ACCESS -> viewModel.requestUsagePermission()
+                                            SetupStep.ACCESSIBILITY -> viewModel.requestAccessibilityPermission()
+                                            SetupStep.BATTERY_UNRESTRICTED -> viewModel.requestBatteryUnrestricted()
+                                            SetupStep.AUTOSTART -> viewModel.requestAutostart()
+                                            SetupStep.POST_NOTIFICATIONS -> requestPostNotificationsPermission()
+                                            SetupStep.OVERLAY -> viewModel.requestOverlayPermission()
+                                            SetupStep.NOTIFICATION_LISTENER -> viewModel.requestNotificationPermission()
+                                            SetupStep.DEVICE_ADMIN -> viewModel.requestDeviceAdmin(this@MainActivity)
+                                        }
+                                    },
                                     onBack = { viewModel.navigateTo(AppScreen.Dashboard) }
                                 )
                             }
