@@ -30,12 +30,10 @@ import app.extremefocus.ui.screens.AppScreen
 import app.extremefocus.ui.screens.AppSelectorScreen
 import app.extremefocus.ui.screens.AuditLogsScreen
 import app.extremefocus.ui.screens.BlockInterceptionScreen
-import app.extremefocus.ui.screens.ChallengeType
 import app.extremefocus.ui.screens.DashboardScreen
 import app.extremefocus.ui.screens.FrictionChallengeScreen
 import app.extremefocus.ui.screens.MainViewModel
 import app.extremefocus.ui.screens.MainViewModelFactory
-import app.extremefocus.ui.screens.MonotonyTaskScreen
 import app.extremefocus.ui.screens.PermissionsGuideScreen
 import app.extremefocus.ui.theme.MyApplicationTheme
 
@@ -136,49 +134,14 @@ class MainActivity : ComponentActivity() {
                                     minutesSpent = screen.minutesSpent,
                                     onCloseToHome = { viewModel.navigateTo(AppScreen.Dashboard) },
                                     onStartChallenge = { challengeType ->
-                                        if (challengeType == ChallengeType.MONOTONY_TASK) {
-                                            viewModel.navigateTo(
-                                                AppScreen.MonotonyTask(
-                                                    packageName = screen.packageName,
-                                                    appName = screen.appName
-                                                )
-                                            )
-                                        } else {
-                                            viewModel.navigateTo(
-                                                AppScreen.FrictionChallenge(
-                                                    packageName = screen.packageName,
-                                                    appName = screen.appName,
-                                                    challengeType = challengeType
-                                                )
-                                            )
-                                        }
-                                    },
-                                    onStartMonotonyTask = {
-                                        if (permissionsState.hasOverlay) {
-                                            viewModel.launchMonotonyOverlay(
+                                        viewModel.navigateTo(
+                                            AppScreen.FrictionChallenge(
                                                 packageName = screen.packageName,
-                                                appName = screen.appName
+                                                appName = screen.appName,
+                                                challengeType = challengeType
                                             )
-                                        } else {
-                                            viewModel.navigateTo(
-                                                AppScreen.MonotonyTask(
-                                                    packageName = screen.packageName,
-                                                    appName = screen.appName
-                                                )
-                                            )
-                                        }
+                                        )
                                     }
-                                )
-                            }
-                            is AppScreen.MonotonyTask -> {
-                                MonotonyTaskScreen(
-                                    packageName = screen.packageName,
-                                    appName = screen.appName,
-                                    onCompletedWhitelist15Min = {
-                                        viewModel.unlockTemporarily(screen.packageName, 15)
-                                        viewModel.navigateTo(AppScreen.Dashboard)
-                                    },
-                                    onCancel = { viewModel.navigateTo(AppScreen.Dashboard) }
                                 )
                             }
                             is AppScreen.FrictionChallenge -> {
@@ -186,8 +149,12 @@ class MainActivity : ComponentActivity() {
                                     packageName = screen.packageName,
                                     appName = screen.appName,
                                     challengeType = screen.challengeType,
-                                    onChallengeCompleted = { minutesUnlocked ->
-                                        viewModel.unlockTemporarily(screen.packageName, minutesUnlocked)
+                                    onChallengeCompleted = { minutesUnlocked, declaredIntent ->
+                                        viewModel.unlockTemporarily(
+                                            packageName = screen.packageName,
+                                            minutes = minutesUnlocked,
+                                            declaredIntent = declaredIntent
+                                        )
                                         viewModel.navigateTo(AppScreen.Dashboard)
                                     },
                                     onCancel = { viewModel.navigateTo(AppScreen.Dashboard) }

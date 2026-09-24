@@ -14,7 +14,6 @@ import app.extremefocus.domain.DefaultMonitoredApps
 import app.extremefocus.domain.PlatformRecommendationEngine
 import app.extremefocus.domain.RestrictionTier
 import app.extremefocus.service.ExtremeFocusMonitorService
-import app.extremefocus.service.MonotonyOverlayService
 import app.extremefocus.service.SystemUsageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -185,16 +184,18 @@ class MainViewModel(
         }
     }
 
-    fun unlockTemporarily(packageName: String, minutes: Int = 3) {
+    fun unlockTemporarily(packageName: String, minutes: Int = 3, declaredIntent: String? = null) {
         viewModelScope.launch(Dispatchers.IO) {
             val expiresAt = System.currentTimeMillis() + (minutes * 60 * 1000L)
             database.monitoredAppDao().setTemporaryUnlock(packageName, true, expiresAt)
+            database.monitoredAppDao().setDeclaredIntent(packageName, declaredIntent)
             val app = database.monitoredAppDao().getAppByPackage(packageName)
             database.blockEventDao().logEvent(
                 BlockEventLog(
                     packageName = packageName,
                     appName = app?.appName ?: packageName,
-                    toughQuote = "Superó la prueba de fricción. Desbloqueo temporal de $minutes min otorgado.",
+                    toughQuote = declaredIntent?.let { "Declaró: \"$it\"" }
+                        ?: "Superó la prueba de fricción. Desbloqueo temporal de $minutes min otorgado.",
                     challengeAttempted = "Fricción Superada",
                     challengeSucceeded = true
                 )
@@ -214,19 +215,6 @@ class MainViewModel(
                 )
             }
         }
-    }
-
-    fun launchMonotonyOverlay(packageName: String, appName: String) {
-        if (usageManager.hasOverlayPermission()) {
-            MonotonyOverlayService.showOverlay(context, packageName, appName)
-        } else {
-            // If overlay permission is not granted yet, navigate within app
-            _currentScreen.value = AppScreen.MonotonyTask(packageName, appName)
-        }
-    }
-
-    fun dismissMonotonyOverlay() {
-        MonotonyOverlayService.dismissOverlay(context)
     }
 
     private fun loadInstalledApps() {

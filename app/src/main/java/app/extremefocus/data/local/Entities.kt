@@ -15,7 +15,9 @@ data class MonitoredAppEntity(
     val temporaryUnlockExpiresAt: Long = 0L,
     val timesBlockedToday: Int = 0,
     val iconCategory: String = "SOCIAL",
-    val blockNotifications: Boolean = true // True: notifications intercepted & wiped
+    val blockNotifications: Boolean = true, // True: notifications intercepted & wiped
+    // What the user said they came to do, quoted back at them when the window runs out.
+    val declaredIntent: String? = null
 )
 
 @Entity(tableName = "block_events")

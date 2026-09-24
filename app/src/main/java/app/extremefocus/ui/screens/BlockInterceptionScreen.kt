@@ -59,8 +59,7 @@ fun BlockInterceptionScreen(
     appName: String,
     minutesSpent: Int,
     onCloseToHome: () -> Unit,
-    onStartChallenge: (ChallengeType) -> Unit,
-    onStartMonotonyTask: () -> Unit = { onStartChallenge(ChallengeType.MONOTONY_TASK) }
+    onStartChallenge: (ChallengeType) -> Unit
 ) {
     val quote = remember(packageName) {
         ToughLoveQuoteEngine.getQuoteForApp(appName, minutesSpent)
@@ -175,115 +174,42 @@ fun BlockInterceptionScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Prominent Monotony Task Card for 15-Minute Whitelist
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(DarkSurface)
-                    .border(1.dp, AmberWarning.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
-                    .clickable { onStartMonotonyTask() }
-                    .testTag("monotony_task_15m_btn"),
-                colors = CardDefaults.cardColors(containerColor = DarkSurface)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(AmberWarning.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "15m",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            fontFamily = FontFamily.Monospace,
-                            color = AmberWarning
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Tarea de Monotonía",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .background(AmberWarning.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 4.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = "OVERLAY ANTI-BYPASS",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Black,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = AmberWarning
-                                )
-                            }
-                        }
-                        Text(
-                            text = "50 ítems o puzle en ventana flotante sobre $appName (15 min)",
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .background(AmberWarning, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "Iniciar",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PitchBlack
-                        )
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Subtle Friction Challenge Options (3 min)
             Text(
-                text = "O microrretos de fricción rápida (3 minutos):",
+                text = "O gánate 3 minutos",
                 style = MaterialTheme.typography.labelMedium,
-                color = TextMuted
+                fontWeight = FontWeight.Bold,
+                color = TextSecondary
             )
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Row(modifier = Modifier.fillMaxWidth()) {
                 ChallengeChip(
-                    text = "Manifiesto",
+                    text = "Declarar intención",
                     modifier = Modifier.weight(1f),
-                    onClick = { onStartChallenge(ChallengeType.MANIFESTO_TRANSCRIPTION) }
+                    onClick = { onStartChallenge(ChallengeType.DECLARE_INTENT) }
                 )
+                Spacer(modifier = Modifier.width(10.dp))
                 ChallengeChip(
-                    text = "Abismo",
+                    text = "Mantener pulsado",
                     modifier = Modifier.weight(1f),
                     onClick = { onStartChallenge(ChallengeType.ABYSS_TOUCH) }
                 )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(modifier = Modifier.fillMaxWidth()) {
                 ChallengeChip(
-                    text = "Matriz 1-50",
+                    text = "Transcribir",
+                    modifier = Modifier.weight(1f),
+                    onClick = { onStartChallenge(ChallengeType.MANIFESTO_TRANSCRIPTION) }
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                ChallengeChip(
+                    text = "Rejilla monótona",
                     modifier = Modifier.weight(1f),
                     onClick = { onStartChallenge(ChallengeType.MONOTONY_GRID) }
                 )

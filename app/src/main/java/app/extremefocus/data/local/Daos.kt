@@ -36,6 +36,9 @@ interface MonitoredAppDao {
     @Query("UPDATE monitored_apps SET isTemporaryUnlocked = :unlocked, temporaryUnlockExpiresAt = :expiresAt WHERE packageName = :packageName")
     suspend fun setTemporaryUnlock(packageName: String, unlocked: Boolean, expiresAt: Long)
 
+    @Query("UPDATE monitored_apps SET declaredIntent = :intent WHERE packageName = :packageName")
+    suspend fun setDeclaredIntent(packageName: String, intent: String?)
+
     @Query("UPDATE monitored_apps SET timesBlockedToday = timesBlockedToday + 1 WHERE packageName = :packageName")
     suspend fun incrementBlockedCount(packageName: String)
 

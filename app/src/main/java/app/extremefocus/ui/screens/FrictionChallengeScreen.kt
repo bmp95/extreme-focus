@@ -30,6 +30,8 @@ import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -80,7 +82,7 @@ fun FrictionChallengeScreen(
     packageName: String,
     appName: String,
     challengeType: ChallengeType,
-    onChallengeCompleted: (Int) -> Unit,
+    onChallengeCompleted: (minutes: Int, declaredIntent: String?) -> Unit,
     onCancel: () -> Unit
 ) {
     Column(
@@ -129,16 +131,19 @@ fun FrictionChallengeScreen(
 
         when (challengeType) {
             ChallengeType.MANIFESTO_TRANSCRIPTION -> {
-                ManifestoTranscriptionChallenge(onSuccess = { onChallengeCompleted(3) })
+                ManifestoTranscriptionChallenge(onSuccess = { onChallengeCompleted(3, null) })
             }
             ChallengeType.ABYSS_TOUCH -> {
-                AbyssTouchChallenge(onSuccess = { onChallengeCompleted(3) })
+                AbyssTouchChallenge(onSuccess = { onChallengeCompleted(3, null) })
             }
             ChallengeType.MONOTONY_GRID -> {
-                MonotonyGridChallenge(onSuccess = { onChallengeCompleted(3) })
+                MonotonyGridChallenge(onSuccess = { onChallengeCompleted(3, null) })
             }
-            ChallengeType.MONOTONY_TASK -> {
-                MonotonyGridChallenge(onSuccess = { onChallengeCompleted(15) })
+            ChallengeType.DECLARE_INTENT -> {
+                DeclareIntentChallenge(
+                    appName = appName,
+                    onSuccess = { intent -> onChallengeCompleted(3, intent) }
+                )
             }
         }
     }
@@ -662,3 +667,99 @@ fun MonotonyGridChallenge(onSuccess: () -> Unit) {
         }
     }
 }
+
+/**
+ * The cheapest challenge on purpose: naming what you came to do turns an automatic unlock into
+ * a decision, and the sentence is quoted back when the three minutes are up.
+ */
+@Composable
+fun DeclareIntentChallenge(appName: String, onSuccess: (String) -> Unit) {
+    var intent by remember { mutableStateOf("") }
+    val trimmed = intent.trim()
+    val isLongEnough = trimmed.length >= MIN_INTENT_LENGTH
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "DECLARA TU INTENCIÓN",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = FontFamily.Monospace,
+            letterSpacing = 1.sp,
+            color = AmberWarning
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = "Escribe en una frase a qué entras exactamente en $appName. Cuando se acaben los 3 minutos te la voy a recordar.",
+            fontSize = 14.sp,
+            color = TextSecondary,
+            lineHeight = 20.sp
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(CardSurface)
+                .border(1.dp, if (isLongEnough) NeonGreenSuccess else CardBorder, RoundedCornerShape(12.dp))
+                .padding(14.dp)
+        ) {
+            BasicTextField(
+                value = intent,
+                onValueChange = { if (it.length <= MAX_INTENT_LENGTH) intent = it },
+                singleLine = false,
+                textStyle = TextStyle(color = TextPrimary, fontSize = 16.sp, lineHeight = 22.sp),
+                cursorBrush = SolidColor(AmberWarning),
+                modifier = Modifier.fillMaxWidth()
+            ) { inner ->
+                if (intent.isEmpty()) {
+                    Text(
+                        text = "Ej. responder al mensaje de Marta",
+                        fontSize = 16.sp,
+                        color = TextMuted
+                    )
+                }
+                inner()
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = if (isLongEnough) {
+                "Listo. Esta frase es tu compromiso."
+            } else {
+                "Escribe al menos $MIN_INTENT_LENGTH caracteres. \"Nada\" o \"ver\" no cuentan como intención."
+            },
+            fontSize = 12.sp,
+            color = if (isLongEnough) NeonGreenSuccess else TextMuted
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Button(
+            onClick = { onSuccess(trimmed) },
+            enabled = isLongEnough,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AmberWarning,
+                disabledContainerColor = CardSurface
+            )
+        ) {
+            Text(
+                text = "Entrar 3 minutos",
+                fontWeight = FontWeight.Bold,
+                color = if (isLongEnough) PitchBlack else TextMuted
+            )
+        }
+    }
+}
+
+private const val MIN_INTENT_LENGTH = 12
+private const val MAX_INTENT_LENGTH = 120

@@ -84,9 +84,9 @@
                 android:value="Continuously monitors device usage stats locally to enforce digital wellbeing limits." />
         </service>
 
-        <!-- System Alert Window Overlay Service: Displays persistent Monotony Task over blocked apps -->
+        <!-- Draws the block over the offending app; a background activity launch gets dropped -->
         <service
-            android:name=".service.MonotonyOverlayService"
+            android:name=".service.BlockOverlayService"
             android:enabled="true"
             android:exported="false" />
 

@@ -280,10 +280,7 @@ fun DashboardScreen(
                 onOpenCustomMinutesDialog = {
                     customDialogApp = app
                 },
-                onSimulateTest = { onSimulateIntercept(app.packageName) },
-                onStartMonotonyTask = {
-                    onNavigate(AppScreen.MonotonyTask(app.packageName, app.appName))
-                }
+                onSimulateTest = { onSimulateIntercept(app.packageName) }
             )
         }
     }
@@ -543,8 +540,7 @@ fun CleanAppItemCard(
     onToggleNotification: () -> Unit,
     onSelectLimitMinutes: (Int) -> Unit,
     onOpenCustomMinutesDialog: () -> Unit,
-    onSimulateTest: () -> Unit,
-    onStartMonotonyTask: () -> Unit = {}
+    onSimulateTest: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -690,24 +686,6 @@ fun CleanAppItemCard(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Monotony Task Window (15 min)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(AmberWarning.copy(alpha = 0.12f))
-                            .border(1.dp, AmberWarning.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-                            .clickable { onStartMonotonyTask() }
-                            .padding(horizontal = 9.dp, vertical = 5.dp)
-                    ) {
-                        Text(
-                            text = "+15m",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = AmberWarning
-                        )
-                    }
-
                     // Quick Limit Tune
                     Row(
                         verticalAlignment = Alignment.CenterVertically,

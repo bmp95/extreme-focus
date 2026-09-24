@@ -3,6 +3,8 @@ package app.extremefocus.service
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -19,6 +21,8 @@ class ExtremeFocusAccessibilityService : AccessibilityService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var database: AppDatabase
+    private var lastInterceptedPackage: String? = null
+    private var lastInterceptAt = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -83,9 +87,8 @@ class ExtremeFocusAccessibilityService : AccessibilityService() {
 
                 if (!isTemporarilyFree) {
                     val isExceeded = monitoredApp.currentUsageMinutes >= monitoredApp.dailyLimitMinutes
-                    if (isExceeded) {
+                    if (isExceeded && claimIntercept(targetPackage)) {
                         Log.w(TAG, "INTERCEPTING APP: $targetPackage - Usage exceeded limit!")
-                        performGlobalAction(GLOBAL_ACTION_HOME)
                         triggerBlockScreen(
                             targetPackage = targetPackage,
                             appName = monitoredApp.appName,
@@ -95,6 +98,20 @@ class ExtremeFocusAccessibilityService : AccessibilityService() {
                 }
             }
         }
+    }
+
+    /**
+     * A single app launch produces several window-state events, and acting on each one used to
+     * fire the interception repeatedly, double-counting blocks and cancelling its own UI.
+     */
+    private fun claimIntercept(packageName: String): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (packageName == lastInterceptedPackage && now - lastInterceptAt < INTERCEPT_DEBOUNCE_MS) {
+            return false
+        }
+        lastInterceptedPackage = packageName
+        lastInterceptAt = now
+        return true
     }
 
     private fun triggerBlockScreen(targetPackage: String, appName: String, minutes: Int) {
@@ -109,6 +126,14 @@ class ExtremeFocusAccessibilityService : AccessibilityService() {
                 )
             )
 
+            // Drawn straight over the offending app: an overlay appears immediately and cannot be
+            // refused the way a background activity launch can, so the block is actually seen.
+            if (Settings.canDrawOverlays(applicationContext)) {
+                BlockOverlayService.show(applicationContext, targetPackage, appName, minutes)
+                return@launch
+            }
+
+            performGlobalAction(GLOBAL_ACTION_HOME)
             val intent = Intent(applicationContext, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra("EXTRA_TARGET_PACKAGE", targetPackage)
@@ -177,6 +202,7 @@ class ExtremeFocusAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "ExtremeFocusService"
+        private const val INTERCEPT_DEBOUNCE_MS = 5_000L
 
         private val BROWSER_PACKAGES = setOf(
             "com.android.chrome",
