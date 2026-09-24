@@ -87,7 +87,7 @@ class ExtremeFocusAccessibilityService : AccessibilityService() {
 
                 if (!isTemporarilyFree) {
                     val isExceeded = monitoredApp.currentUsageMinutes >= monitoredApp.dailyLimitMinutes
-                    if (isExceeded && claimIntercept(targetPackage)) {
+                    if (isExceeded && BlockPresenter.claim(targetPackage)) {
                         Log.w(TAG, "INTERCEPTING APP: $targetPackage - Usage exceeded limit!")
                         triggerBlockScreen(
                             targetPackage = targetPackage,
@@ -98,20 +98,6 @@ class ExtremeFocusAccessibilityService : AccessibilityService() {
                 }
             }
         }
-    }
-
-    /**
-     * A single app launch produces several window-state events, and acting on each one used to
-     * fire the interception repeatedly, double-counting blocks and cancelling its own UI.
-     */
-    private fun claimIntercept(packageName: String): Boolean {
-        val now = SystemClock.elapsedRealtime()
-        if (packageName == lastInterceptedPackage && now - lastInterceptAt < INTERCEPT_DEBOUNCE_MS) {
-            return false
-        }
-        lastInterceptedPackage = packageName
-        lastInterceptAt = now
-        return true
     }
 
     private fun triggerBlockScreen(targetPackage: String, appName: String, minutes: Int) {
@@ -126,22 +112,8 @@ class ExtremeFocusAccessibilityService : AccessibilityService() {
                 )
             )
 
-            // Drawn straight over the offending app: an overlay appears immediately and cannot be
-            // refused the way a background activity launch can, so the block is actually seen.
-            if (Settings.canDrawOverlays(applicationContext)) {
-                BlockOverlayService.show(applicationContext, targetPackage, appName, minutes)
-                return@launch
-            }
-
-            performGlobalAction(GLOBAL_ACTION_HOME)
-            val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                putExtra("EXTRA_TARGET_PACKAGE", targetPackage)
-                putExtra("EXTRA_TARGET_NAME", appName)
-                putExtra("EXTRA_MINUTES_SPENT", minutes)
-                putExtra("EXTRA_TRIGGER_BLOCK_SCREEN", true)
-            }
-            startActivity(intent)
+            val drawnOverApp = BlockPresenter.show(applicationContext, targetPackage, appName, minutes)
+            if (!drawnOverApp) performGlobalAction(GLOBAL_ACTION_HOME)
         }
     }
 

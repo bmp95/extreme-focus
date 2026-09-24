@@ -126,7 +126,7 @@ class ExtremeFocusMonitorService : Service() {
 
             // If the user is currently using an app that just crossed or is over its limit
             if (app.isBlocked && isExceeded && !isTemporarilyFree) {
-                if (currentForegroundApp == app.packageName) {
+                if (currentForegroundApp == app.packageName && BlockPresenter.claim(app.packageName)) {
                     Log.w(TAG, "THRESHOLD EXCEEDED: ${app.appName} (${app.packageName}) reached $realMinutes / ${app.dailyLimitMinutes} min! Intercepting immediately.")
                     interceptForegroundApp(app.packageName, app.appName, realMinutes)
                 }
@@ -158,20 +158,7 @@ class ExtremeFocusMonitorService : Service() {
                 )
             )
 
-            // Launch Block Interception UI over the current app
-            val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                )
-                putExtra("EXTRA_TARGET_PACKAGE", packageName)
-                putExtra("EXTRA_TARGET_NAME", appName)
-                putExtra("EXTRA_MINUTES_SPENT", minutesSpent)
-                putExtra("EXTRA_TRIGGER_BLOCK_SCREEN", true)
-            }
-            startActivity(intent)
+            BlockPresenter.show(applicationContext, packageName, appName, minutesSpent)
         }
     }
 

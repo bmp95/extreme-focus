@@ -178,6 +178,8 @@ class BlockOverlayService : Service(), LifecycleOwner, ViewModelStoreOwner, Save
                     challengeSucceeded = true
                 )
             )
+            // The window is granted, so the next block after it expires must not be debounced away.
+            BlockPresenter.release()
             launch(Dispatchers.Main) {
                 removeOverlay()
                 stopSelf()
